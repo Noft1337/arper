@@ -1,0 +1,6 @@
+.git
+.idea
+[Cc][Mm]ake*
+run
+*.out
+
