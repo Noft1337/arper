@@ -15,13 +15,13 @@ void set_type_msg(char msg[], int type){
     if (type == INFO) {
         strcpy(msg, "[INFO]");
     }
-    if (type == WARNING) {
+    else if (type == WARNING) {
         strcpy(msg, "[WARNING]");
     }
-    if (type == CRITICAL) {
+    else if (type == CRITICAL) {
         strcpy(msg, "[CRITICAL]");
     }
-    if (type == ERROR) {
+    else if (type == ERROR) {
         strcpy(msg, "[ERROR]");
     }
     else{
