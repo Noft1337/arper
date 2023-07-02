@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <stdarg.h>
 #include <signal.h>
 #include <unistd.h>
 
@@ -36,13 +37,20 @@ void set_time_string(char *time_string){
     sprintf(time_string, "[%d:%d:%d %d-%d-%d]", tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
 }
 
-void logger(char *msg, int type){
+void logger(char *msg, int type, ...){
     char type_msg[10];
     char decleration[] = "[*]";
     char current_time[50];
 
+    // Logger fstring support
+    va_list args;
+    va_start(args, type);
+    va_end(args);
+
     set_time_string(current_time);
     set_type_msg(type_msg, type);
 
-    printf("%s - %s | %s | --> %s\n", decleration, current_time, type_msg, msg);
+    printf("%s - %s | %s | --> ", decleration, current_time, type_msg);
+    vprintf(msg, args);
+    printf("\n");
 }
