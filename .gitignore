@@ -3,4 +3,6 @@
 [Cc][Mm]ake*
 run
 *.out
-
+.vscode
+.vscode/*
+.idea/*
