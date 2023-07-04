@@ -33,9 +33,17 @@ int init_socket(int *s){
     return 1; 
 }
 
-void set_if(struct ifreq *ifr, char * interface){
+void set_if(struct ifreq *ifr, char *interface){
     memset(ifr, 0, sizeof(* ifr));
     snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), interface);
+}
+
+
+void print_traffic(unsigned char *mem, size_t size){
+    for (int i = 0; i < size; i++){
+        printf("%02x", mem[i]);
+    }
+    printf("\n\n");
 }
 
 
@@ -46,7 +54,9 @@ int main(){
     unsigned char mem[BUFFER];
     struct ifreq ifr;
     struct sockaddr src_addr;
+    socklen_t addr_len = sizeof(src_addr);
     int sock_set;
+    int packet_num = 0;
 
     // Init process
     if(!init_socket(&socket_r)){return -1;}
@@ -55,10 +65,16 @@ int main(){
     logger("Socket bound to net interface: \"%s\"", INFO, iface);
     // Sniffing process
     while(1){
-        break;
-        // r_data = recvfrom(socket_r, )
+         r_data = recvfrom(socket_r, mem, BUFFER, 0, &src_addr, &addr_len);
+         if (r_data > 0){
+             print_traffic(mem, r_data);
+         }
+         packet_num++;
+         if (packet_num == 10){
+             break;
+         }
     }
 
-
+    close(socket_r);
     return 0;
 }
