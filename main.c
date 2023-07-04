@@ -33,22 +33,30 @@ int init_socket(int *s){
     return 1; 
 }
 
+void set_if(struct ifreq *ifr, char * interface){
+    memset(ifr, 0, sizeof(* ifr));
+    snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), interface);
+}
+
+
 int main(){
     int socket_r;
+    char iface[] = "m0";
     size_t r_data;
     unsigned char mem[BUFFER];
     struct ifreq ifr;
     struct sockaddr src_addr;
-    socklen_t = sizeof(src_addr);
     int sock_set;
 
     // Init process
     if(!init_socket(&socket_r)){return -1;}
-
-
+    set_if(&ifr, iface);
+    setsockopt(socket_r, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr));
+    logger("Socket bound to net interface: \"%s\"", INFO, iface);
     // Sniffing process
     while(1){
-        r_data = recvfrom(socket_r, )
+        break;
+        // r_data = recvfrom(socket_r, )
     }
 
 
