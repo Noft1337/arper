@@ -12,7 +12,7 @@
 #include <net/if.h>
 
 
-char MAIN_VERSION[] = "0.0.1";
+char MAIN_VERSION[] = "0.0.2";
 int BUFFER = 65536;
 
 
