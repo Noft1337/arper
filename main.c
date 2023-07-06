@@ -12,7 +12,7 @@
 
 #define MAIN_VERSION "0.0.5"
 #define BUFFER 65536
-#define INTERFACE "m0"
+#define INTERFACE "wlp0s20f3"
 
 
 void init_msg(){
@@ -43,9 +43,8 @@ void set_if(struct ifreq *ifr){
 }
 
 
-void print_traffic(unsigned char *mem, int num, size_t size, struct timespec *start, struct timespec *current){
-    double time_stamp = (double)((current->tv_sec - start->tv_sec) + (current->tv_nsec - start->tv_nsec)) / 1000000000.0;;
-    printf("[#%d]-[%f] - ", num, time_stamp);
+void print_traffic(unsigned char *mem, int num, size_t size, double timestamp){
+    printf("[*] - [%f][#%d] - ", num, timestamp);
     for (int i = 0; i < size; i++){
         printf("%02x", mem[i]);
     }
@@ -74,9 +73,22 @@ void bind_socket(int sock_fd, struct ifreq *ifr, struct sockaddr_ll *saddr, sock
 }
 
 
+double get_timedelta(struct timespec *start, struct timespec *end){
+    clock_gettime(CLOCK_MONOTONIC, end);
+    time_t seconds = end->tv_sec - start->tv_sec;
+    long  nanoseconds = end->tv_nsec - start->tv_nsec;
+    if (nanoseconds < 0){
+        seconds -= 1;
+        nanoseconds += 100000000;
+    }
+    return (double)seconds + (double)nanoseconds / 1000000000;
+}
+
+
 int main(){
     int socket_r;
     int packet_num = 0;
+    double timestamp;
     unsigned char mem[BUFFER];
     struct ifreq ifr;
     struct sockaddr_ll src_addr;
@@ -96,8 +108,8 @@ int main(){
          r_data = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
          if (r_data > 0) {
              packet_num++;
-             clock_gettime(CLOCK_MONOTONIC, &current);
-             print_traffic(mem, packet_num, r_data, &start, &current);
+             timestamp = get_timedelta(&start, &current);
+             print_traffic(mem, packet_num, r_data, timestamp);
          }
     }
 
