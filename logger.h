@@ -6,11 +6,11 @@
 #include <unistd.h>
 
 
-char LOGGER_VERSION[] = "1.0.0";
-int INFO = 1;
-int WARNING = 2; 
-int CRITICAL = 3;
-int ERROR = 4;
+#define LOGGER_VERSION "1.0.1"
+#define INFO 1
+#define WARNING 2
+#define CRITICAL 3
+#define ERROR 4
 
 void set_type_msg(char msg[], int type){
     if (type == INFO) {

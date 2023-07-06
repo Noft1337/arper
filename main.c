@@ -1,19 +1,24 @@
-#include<stdio.h>	//For standard things
-#include<stdlib.h>	//malloc
-#include<string.h>	//memset
-#include<netinet/ip_icmp.h>	//Provides declarations for icmp header
-#include<netinet/udp.h>	//Provides declarations for udp header
-#include<netinet/tcp.h>	//Provides declarations for tcp header
-#include<netinet/ip.h>	//Provides declarations for ip header
-#include<netinet/if_ether.h>
-#include<sys/socket.h>
-#include"logger.h"
-#include<arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <netinet/ip.h>
+#include <netinet/if_ether.h>
+#include <sys/socket.h>
+#include "logger.h"
 #include <net/if.h>
+#include <netpacket/packet.h>
+#include <sys/ioctl.h>
 
 
-char MAIN_VERSION[] = "0.0.2";
-int BUFFER = 65536;
+
+#define MAIN_VERSION "0.0.4"
+#define BUFFER 65536
+#define INTERFACE "m0"
+
+
+void init_msg(){
+    printf("Program v%s\nLogger v%s\nStarting program...\n", MAIN_VERSION, LOGGER_VERSION);
+}
 
 
 int init_socket(int *s){
@@ -33,13 +38,15 @@ int init_socket(int *s){
     return 1; 
 }
 
-void set_if(struct ifreq *ifr, char *interface){
+void set_if(struct ifreq *ifr){
     memset(ifr, 0, sizeof(* ifr));
-    snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), interface);
+    snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), INTERFACE);
 }
 
 
-void print_traffic(unsigned char *mem, size_t size){
+void print_traffic(unsigned char *mem, int num, size_t size, time_t start, time_t current){
+    double time_stamp = ((double)current - (double)start) / CLOCKS_PER_SEC;
+    printf("[#%d] - [%f]", num, time_stamp);
     for (int i = 0; i < size; i++){
         printf("%02x", mem[i]);
     }
@@ -47,31 +54,54 @@ void print_traffic(unsigned char *mem, size_t size){
 }
 
 
+void bind_socket(int sock_fd, struct ifreq *ifr, struct sockaddr_ll *saddr, socklen_t addr_len){
+    if (ioctl(sock_fd, SIOCGIFINDEX, ifr) == -1){
+        perror("ioctl");
+        close(sock_fd);
+        exit(-1);
+    } else {
+        logger("ioctl started successfully", INFO);
+    }
+    saddr->sll_family = AF_PACKET;
+    saddr->sll_ifindex = ifr->ifr_ifindex;
+    saddr->sll_protocol = htons(ETH_P_ALL);
+    if (bind(sock_fd, saddr, addr_len) == -1){
+        perror("Bind error");
+        close(sock_fd);
+        exit(-1);
+    } else {
+        logger("Bound socket successfully on \"%s\"", INFO, INTERFACE);
+    }
+}
+
+
 int main(){
     int socket_r;
-    char iface[] = "m0";
-    size_t r_data;
+    int packet_num = 0;
     unsigned char mem[BUFFER];
     struct ifreq ifr;
-    struct sockaddr src_addr;
+    struct sockaddr_ll src_addr;
+    time_t start, current;
+    size_t r_data;
     socklen_t addr_len = sizeof(src_addr);
-    int sock_set;
-    int packet_num = 0;
 
     // Init process
+    init_msg();
     if(!init_socket(&socket_r)){return -1;}
-    set_if(&ifr, iface);
-    setsockopt(socket_r, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr));
-    logger("Socket bound to net interface: \"%s\"", INFO, iface);
+    set_if(&ifr);
+    bind_socket(socket_r, &ifr, &src_addr,addr_len);
+    start = clock();
+
     // Sniffing process
     while(1){
-         r_data = recvfrom(socket_r, mem, BUFFER, 0, &src_addr, &addr_len);
-         if (r_data > 0){
-             print_traffic(mem, r_data);
-         }
-         packet_num++;
-         if (packet_num == 10){
-             break;
+         r_data = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
+         if (r_data > 0) {
+             packet_num++;
+             current = clock();
+             print_traffic(mem, packet_num, r_data, start, current);
+             if (packet_num == 10) {
+                 break;
+             }
          }
     }
 
