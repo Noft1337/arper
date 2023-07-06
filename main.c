@@ -1,17 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netpacket/packet.h>
 #include <netinet/ip.h>
 #include <netinet/if_ether.h>
-#include <sys/socket.h>
-#include "logger.h"
 #include <net/if.h>
-#include <netpacket/packet.h>
+#include <sys/socket.h>
 #include <sys/ioctl.h>
+#include "logger.h"
 
 
-
-#define MAIN_VERSION "0.0.4"
+#define MAIN_VERSION "0.0.5"
 #define BUFFER 65536
 #define INTERFACE "m0"
 
@@ -44,9 +43,9 @@ void set_if(struct ifreq *ifr){
 }
 
 
-void print_traffic(unsigned char *mem, int num, size_t size, time_t start, time_t current){
-    double time_stamp = ((double)current - (double)start) / CLOCKS_PER_SEC;
-    printf("[#%d] - [%f]", num, time_stamp);
+void print_traffic(unsigned char *mem, int num, size_t size, struct timespec *start, struct timespec *current){
+    double time_stamp = (double)((current->tv_sec - start->tv_sec) + (current->tv_nsec - start->tv_nsec)) / 1000000000.0;;
+    printf("[#%d]-[%f] - ", num, time_stamp);
     for (int i = 0; i < size; i++){
         printf("%02x", mem[i]);
     }
@@ -81,7 +80,7 @@ int main(){
     unsigned char mem[BUFFER];
     struct ifreq ifr;
     struct sockaddr_ll src_addr;
-    time_t start, current;
+    struct timespec start, current;
     size_t r_data;
     socklen_t addr_len = sizeof(src_addr);
 
@@ -90,18 +89,15 @@ int main(){
     if(!init_socket(&socket_r)){return -1;}
     set_if(&ifr);
     bind_socket(socket_r, &ifr, &src_addr,addr_len);
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     // Sniffing process
     while(1){
          r_data = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
          if (r_data > 0) {
              packet_num++;
-             current = clock();
-             print_traffic(mem, packet_num, r_data, start, current);
-             if (packet_num == 10) {
-                 break;
-             }
+             clock_gettime(CLOCK_MONOTONIC, &current);
+             print_traffic(mem, packet_num, r_data, &start, &current);
          }
     }
 
