@@ -27,14 +27,14 @@ int init_socket(int *s){
     if (uid != 0){
         perror("Please run the program as \"root\"");
         exit(-1);
-    } 
+    }
     if(*s > 0){
         logger("Socket initialized successfully", INFO);
     } else {
         logger("Couldn't create socket ", ERROR);
-        return 0;  
+        return 0;
     }
-    return 1; 
+    return 1;
 }
 
 void set_if(struct ifreq *ifr){
@@ -105,12 +105,12 @@ int main(){
 
     // Sniffing process
     while(1){
-         r_data = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
-         if (r_data > 0) {
-             packet_num++;
-             timestamp = get_timedelta(&start, &current);
-             print_traffic(mem, packet_num, r_data, timestamp);
-         }
+        r_data = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
+        if (r_data > 0) {
+            packet_num++;
+            timestamp = get_timedelta(&start, &current);
+            print_traffic(mem, packet_num, r_data, timestamp);
+        }
     }
 
     close(socket_r);
