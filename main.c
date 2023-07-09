@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include "logger.h"
+#include "packeter.h"
 
 
 #define MAIN_VERSION "0.0.5"
