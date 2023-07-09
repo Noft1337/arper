@@ -11,9 +11,9 @@
 #include "packeter.h"
 
 
-#define MAIN_VERSION "0.0.5"
+#define MAIN_VERSION "0.0.6"
 #define BUFFER 65536
-#define INTERFACE "wlp0s20f3"
+#define INTERFACE "enp5s0"
 
 
 void init_msg(){
@@ -49,7 +49,7 @@ void print_traffic(unsigned char *mem, int num, size_t size, double timestamp){
     for (int i = 0; i < size; i++){
         printf("%02x", mem[i]);
     }
-    printf("\n\n");
+    printf("\n");
 }
 
 
@@ -94,7 +94,8 @@ int main(){
     struct ifreq ifr;
     struct sockaddr_ll src_addr;
     struct timespec start, current;
-    size_t r_data;
+    struct inet_frame i_frame;
+    size_t data_length;
     socklen_t addr_len = sizeof(src_addr);
 
     // Init process
@@ -106,11 +107,13 @@ int main(){
 
     // Sniffing process
     while(1){
-        r_data = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
-        if (r_data > 0) {
+        data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
+        if (data_length > 0) {
             packet_num++;
             timestamp = get_timedelta(&start, &current);
-            print_traffic(mem, packet_num, r_data, timestamp);
+            print_traffic(mem, packet_num, data_length, timestamp);
+            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
+            print_inet_frame(i_frame);
         }
     }
 
