@@ -16,12 +16,13 @@
 #define ARP_BYTES {0x08, 0x06}
 #define IPV4_BYTES {0x08, 0x00}
 #define IPV6_BYTES {0x86, 0xDD};
+#define LLDC_BYTES {0x88, 0xCC};
 
 #define ARP 1
 #define IPV4 2
 #define IPV6 3
-#define LLDC 5
-#define ETHER_TYPES {"ARP", "IPV4", "IPV6", "UNKNOWN", "LLDC"}
+#define LLDC 4
+#define ETHER_TYPES {"UNKNOWN", "ARP", "IPV4", "IPV6", "LLDC"}
 
 
 struct inet_frame{
@@ -45,6 +46,8 @@ int get_ether_type(struct inet_frame f){
     const unsigned char arp_bytes[] = ARP_BYTES;
     const unsigned char ipv4_bytes[] = IPV4_BYTES;
     const unsigned char ipv6_bytes[] = IPV6_BYTES;
+    const unsigned char lldc_bytes[] = LLDC_BYTES;
+
 
     if (compare_arrays(f.ether_type, arp_bytes, 2)){
         return ARP;
@@ -52,10 +55,12 @@ int get_ether_type(struct inet_frame f){
         return IPV4;
     } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)){
         return IPV6;
+    } else if (compare_arrays(f.ether_type, lldc_bytes, 2)){
+        return LLDC;
     } else {
         errno = EOVERFLOW;
         perror("Unknown Ether II type");
-        return 4;
+        return 0;
     }
 }
 
@@ -130,8 +135,7 @@ void print_inet_frame(const struct inet_frame f){
     char src_mac[18] = {18 * '\0'};
     char dst_mac[18] = {18 * '\0'};
     char ether_type[6] = {6 * '\0'};
-    int type = get_ether_type(f) - 1;
-
+    int type = get_ether_type(f);
     if (type < 0){
         return;
     }
