@@ -7,8 +7,9 @@
 #include <net/if.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 
-#define PACKETER_VERSION "0.0.1"
+#define PACKETER_VERSION "0.0.2"
 
 #define MIN_FRAME_LEN 14
 
@@ -19,7 +20,8 @@
 #define ARP 1
 #define IPV4 2
 #define IPV6 3
-#define ETHER_TYPES {"ARP", "IPV4"}
+#define LLDC 5
+#define ETHER_TYPES {"ARP", "IPV4", "IPV6", "UNKNOWN", "LLDC"}
 
 
 struct inet_frame{
@@ -51,8 +53,9 @@ int get_ether_type(struct inet_frame f){
     } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)){
         return IPV6;
     } else {
+        errno = EOVERFLOW;
         perror("Unknown Ether II type");
-        return -1;
+        return 4;
     }
 }
 
@@ -81,6 +84,7 @@ void set_protocol(struct inet_frame *f, const unsigned char *bytes) {
 
 void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
     if (len < MIN_FRAME_LEN){
+        errno = ELNRNG;
         perror("Invalid packet length");
     } else {
         set_mac_addr(f, bytes);
@@ -126,14 +130,18 @@ void print_inet_frame(const struct inet_frame f){
     char src_mac[18] = {18 * '\0'};
     char dst_mac[18] = {18 * '\0'};
     char ether_type[6] = {6 * '\0'};
+    int type = get_ether_type(f) - 1;
+
+    if (type < 0){
+        return;
+    }
 
     print_hex_set(f.src_mac, src_mac, 6);
     print_hex_set(f.dst_mac, dst_mac, 6);
     print_hex_set(f.ether_type, ether_type, 2);
-    // TODO: take care of when ether type isnt valid
     printf("Source MAC: %s\n"
            "Destination MAC: %s\n"
            "Ether II Type: %s (%s)\n\n",
-           src_mac, dst_mac, ether_type, ether_types[get_ether_type(f) - 1]
+           src_mac, dst_mac, ether_type, ether_types[type]
        );
 }
