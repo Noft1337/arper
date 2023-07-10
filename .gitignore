@@ -6,3 +6,4 @@ run
 .vscode
 .vscode/*
 .idea/*
+sketch.c
