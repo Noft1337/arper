@@ -21,6 +21,49 @@ void init_msg(){
 }
 
 
+void set_mac(uint8_t *mac_var, unsigned char *mem){
+    uint8_t ah, al;
+    for (int i = 0; i <= 15; i += 3){
+        ah = convert_raw_to_hex_char(mem[i]) << 4;
+        al = convert_raw_to_hex_char(mem[i + 1]);
+        mac_var[i - 2 * (i/3)] = ah + al;
+    }
+}
+
+
+void init_mac(){
+    char interface[] = INTERFACE;
+    FILE* mac;
+    char path[100];
+    int file_len;
+    char mac_string[40];
+
+    if (strlen(interface) > 75){
+        errno = ENAMETOOLONG;
+        perror("Interface name is too long");
+        exit(2);
+    }
+    sprintf(path, "/sys/class/net/%s/address", interface);
+    mac = fopen(path, "r");
+    if (!mac){
+        char err_msg[150];
+        sprintf(err_msg, "Couldn't open %s for reading", path);
+        perror(err_msg);
+        exit(2);
+    }
+    unsigned char *content = (unsigned char *)malloc(20);
+    fseek(mac, 0 ,SEEK_END);
+    file_len = (int)ftell(mac);
+    fseek(mac, 0, SEEK_SET);
+    fread(content, 1, file_len, mac);
+    set_mac(LOCAL_MAC, content);
+    print_hex_set(LOCAL_MAC, mac_string, 6);
+    logger("Binding socket on \"%s\" (%s)", INFO, INTERFACE, mac_string);
+
+    free(content);
+}
+
+
 int init_socket(int *s){
     *s = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     uid_t uid = getuid();
@@ -101,6 +144,7 @@ int main(){
     // Init process
     init_msg();
     if(!init_socket(&socket_r)){return -1;}
+    init_mac();
     set_if(&ifr);
     bind_socket(socket_r, &ifr, &src_addr,addr_len);
     clock_gettime(CLOCK_MONOTONIC, &start);

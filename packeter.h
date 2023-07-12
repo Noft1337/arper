@@ -162,6 +162,24 @@ void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *
 }
 
 
+uint8_t convert_raw_to_hex_char(const unsigned char raw_char){
+    uint8_t converted;
+    if(47 < raw_char  && raw_char < 58){
+        // Means that it is a character
+        converted = (uint8_t)(raw_char - '0');
+    } else if (96 < raw_char && raw_char < 123) {
+        // Means that it is a number
+        converted = (uint8_t) (raw_char - ('a' - 10));
+    } else if (64 < raw_char && raw_char < 91) {
+        converted = (uint8_t) (raw_char - ('A' - 10));
+    } else {
+        perror("Invalid hex raw_char");
+        return 0x0;
+    }
+    return converted;
+}
+
+
 char convert_hex_to_raw_char(const uint8_t value){
     char converted;
     if(value < 10){
@@ -172,6 +190,7 @@ char convert_hex_to_raw_char(const uint8_t value){
         converted = (char)(value + ('A' - 10));
     } else {
         perror("Invalid hex value");
+        return 0x0;
     }
     return converted;
 }
@@ -188,13 +207,16 @@ void print_hex_set(const uint8_t *set, char *target, const size_t length){
         target[str_length] = (char) convert_hex_to_raw_char(ah);
         target[str_length + 1] = (char) convert_hex_to_raw_char(al);
         if (i != length - 1) {
-            target[str_length + 3] = ':';
+            target[str_length + 2] = ':';
+            target[str_length + 3] = 0x0;
+        } else {
+            target[str_length + 2] = 0x0;
         }
     }
 }
 
 
-void set_arp_request_struct(struct arp_request *req, struct inet_frame *f){
+void set_arp_request_struct(struct inet_frame *f){
     return;
     //src,dst ip
 }
