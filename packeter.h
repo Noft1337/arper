@@ -9,26 +9,65 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#define PACKETER_VERSION "0.0.2"
+#define PACKETER_VERSION "0.0.3"
+
+/*
+ ARP Frames are bulit like this:
+    Ether II:
+        - DST_MAC: 6 Bytes (On request it will be FF:FF:FF:FF:FF:FF)
+        - SRC_MAC: 6 Bytes
+        - TYPE: 2 Bytes (08:06)
+    ARP:
+        - HW_TYPE: 2 Bytes (00:01 on home PC)
+        - PROTOCOL: 2 Bytes (Most likely IPv4 (08:00) and sometimes IPv6 (86:DD))
+        - HW_SIZE: 1 Byte (The size of the MAC, which is 6)
+        - PROTOCOL_SIZE: 1 Byte (Size of PROTOCOL, which is 4)
+        - OP_CODE: 4 Bytes (The type of the packet, Request (00:01) or Reply (00:02) )
+        - SENDER_MAC: 6 Bytes
+        - SENDER_IP: 4 Bytes
+        - TARGET_MAC: 6 Bytes (00:00:00:00:00:00)
+        - TARGET_IP: 4 Bytes
+ */
 
 #define MIN_FRAME_LEN 14
 
 #define ARP_BYTES {0x08, 0x06}
 #define IPV4_BYTES {0x08, 0x00}
-#define IPV6_BYTES {0x86, 0xDD};
-#define LLDC_BYTES {0x88, 0xCC};
+#define IPV6_BYTES {0x86, 0xDD}
 
 #define ARP 1
 #define IPV4 2
 #define IPV6 3
-#define LLDC 4
-#define ETHER_TYPES {"UNKNOWN", "ARP", "IPV4", "IPV6", "LLDC"}
+#define ETHER_TYPES {"UNKNOWN", "ARP", "IPV4", "IPV6"}
+
+#define BROD_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+#define ARP_IPV4_DEFAULT_9_BYTES {0x8, 0x6, 0x0, 0x1, 0x8, 0x0, 0x6, 0x4, 0x0}
+#define ARP_PADDING {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
+#define MAC_QUERY_LENGTH 60
+#define MAC_RESP_LENGTH 42
 
 
 struct inet_frame{
     uint8_t src_mac[6];
     uint8_t dst_mac[6];
     uint8_t ether_type[2];
+    uint8_t src_ip[4];
+    uint8_t dst_ip[3];
+};
+
+struct arp_request {
+    uint8_t src_mac[6];
+    uint8_t dst_mac[6];
+    uint8_t src_ip[4];
+    uint8_t dst_ip[4];
+};
+
+
+struct arp_reply {
+    uint8_t src_mac[6];
+    uint8_t dst_mac[6];
+    uint8_t src_ip[4];
+    uint8_t dst_ip[4];
 };
 
 
@@ -46,7 +85,6 @@ int get_ether_type(struct inet_frame f){
     const unsigned char arp_bytes[] = ARP_BYTES;
     const unsigned char ipv4_bytes[] = IPV4_BYTES;
     const unsigned char ipv6_bytes[] = IPV6_BYTES;
-    const unsigned char lldc_bytes[] = LLDC_BYTES;
 
 
     if (compare_arrays(f.ether_type, arp_bytes, 2)){
@@ -55,8 +93,6 @@ int get_ether_type(struct inet_frame f){
         return IPV4;
     } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)){
         return IPV6;
-    } else if (compare_arrays(f.ether_type, lldc_bytes, 2)){
-        return LLDC;
     } else {
         errno = EOVERFLOW;
         perror("Unknown Ether II type");
@@ -73,17 +109,15 @@ bool is_protocol(struct inet_frame f, int protocol){
 }
 
 
-void set_mac_addr(struct inet_frame *f, const unsigned char *bytes){
-    for (int i = 0; i < 6; i++){
-        f->dst_mac[i] = bytes[i];
-        f->src_mac[i] = bytes[i + 6];
+void set_iframe_field_from_raw_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte, int stop_byte){
+    if(len != stop_byte - start_byte){
+        errno = EMSGSIZE;
+        perror("Field is not the same size as Bytes");
+        return;
     }
-}
-
-
-void set_protocol(struct inet_frame *f, const unsigned char *bytes) {
-    f->ether_type[0] = bytes[12];
-    f->ether_type[1] = bytes[13];
+    for (int i = start_byte; i < stop_byte; i++){
+        field[i - start_byte] = bytes[i];
+    }
 }
 
 
@@ -92,8 +126,9 @@ void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *
         errno = ELNRNG;
         perror("Invalid packet length");
     } else {
-        set_mac_addr(f, bytes);
-        set_protocol(f, bytes);
+        set_iframe_field_from_raw_bytes(f->dst_mac, bytes, sizeof(f->dst_mac), 0, 6);
+        set_iframe_field_from_raw_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6, 12);
+        set_iframe_field_from_raw_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12, 14);
     }
 }
 
@@ -130,11 +165,19 @@ void print_hex_set(const uint8_t *set, char *target, const size_t length){
 }
 
 
+void set_arp_request_struct(struct arp_request *req, struct inet_frame *f){
+    memcpy(req->src_mac, f->src_mac, sizeof(req->src_mac));
+    memcpy(req->dst_mac, f->dst_mac, sizeof(req->dst_mac));
+    //src,dst ip
+}
+
+
+
 void print_inet_frame(const struct inet_frame f){
     const char *ether_types[] = ETHER_TYPES;
-    char src_mac[18] = {18 * '\0'};
-    char dst_mac[18] = {18 * '\0'};
-    char ether_type[6] = {6 * '\0'};
+    char src_mac[18] = {};
+    char dst_mac[18] = {};
+    char ether_type[6] = {};
     int type = get_ether_type(f);
     if (type < 0){
         return;

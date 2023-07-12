@@ -111,9 +111,12 @@ int main(){
         if (data_length > 0) {
             packet_num++;
             timestamp = get_timedelta(&start, &current);
-            print_traffic(mem, packet_num, data_length, timestamp);
+            // print_traffic(mem, packet_num, data_length, timestamp);
             setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
-            print_inet_frame(i_frame);
+            if(is_protocol(i_frame, ARP)){
+                logger("Received ARP Packet", INFO);
+                print_inet_frame(i_frame);
+            }
         }
     }
 
