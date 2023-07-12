@@ -45,29 +45,30 @@
 #define ARP_PADDING {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 #define MAC_QUERY_LENGTH 60
 #define MAC_RESP_LENGTH 42
+#define OP_REQUEST_BYTES {0x0, 0x1}
+#define OP_REPLY_BYTES {0x0, 0x2}
+
+uint8_t LOCAL_MAC[6];
+
+
+struct arp {
+    uint8_t hw_type[2];
+    uint8_t protocol_type[4];
+    uint8_t hw_size;
+    uint8_t protocol_size;
+    uint8_t op_code[2];
+    uint8_t src_mac[6];
+    uint8_t dst_mac[6];
+    uint8_t src_ip[4];
+    uint8_t dst_ip[4];
+};
 
 
 struct inet_frame{
     uint8_t src_mac[6];
     uint8_t dst_mac[6];
     uint8_t ether_type[2];
-    uint8_t src_ip[4];
-    uint8_t dst_ip[3];
-};
-
-struct arp_request {
-    uint8_t src_mac[6];
-    uint8_t dst_mac[6];
-    uint8_t src_ip[4];
-    uint8_t dst_ip[4];
-};
-
-
-struct arp_reply {
-    uint8_t src_mac[6];
-    uint8_t dst_mac[6];
-    uint8_t src_ip[4];
-    uint8_t dst_ip[4];
+    struct arp arp_segment;
 };
 
 
@@ -109,7 +110,7 @@ bool is_protocol(struct inet_frame f, int protocol){
 }
 
 
-void set_iframe_field_from_raw_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte, int stop_byte){
+void set_field_from_raw_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte, int stop_byte){
     if(len != stop_byte - start_byte){
         errno = EMSGSIZE;
         perror("Field is not the same size as Bytes");
@@ -121,14 +122,42 @@ void set_iframe_field_from_raw_bytes(uint8_t *field, const unsigned char *bytes,
 }
 
 
+void set_arp_request(struct inet_frame *f, const unsigned char *b){
+    uint8_t target_mac[] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+    uint8_t protocol_type[] = {0x8, 0x0};
+    f->arp_segment.hw_size = 6;
+    f->arp_segment.protocol_size = 4;
+
+}
+
+
+void set_iframe_to_arp(struct inet_frame *f, const unsigned char *b){
+    uint8_t op_request[2] = OP_REQUEST_BYTES;
+    uint8_t op_reply[2] = OP_REPLY_BYTES;
+    set_field_from_raw_bytes(f->arp_segment.op_code, b, sizeof(f->arp_segment.op_code), 14, 16);
+    if (f->arp_segment.op_code == op_request){
+        set_arp_request(f, b);
+    } else if (f->arp_segment.op_code == op_reply){
+        return;
+    } else {
+        errno = EPROTONOSUPPORT;
+        perror("Invalid OP_CODE for ARP");
+    }
+}
+
+
 void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
     if (len < MIN_FRAME_LEN){
         errno = ELNRNG;
         perror("Invalid packet length");
     } else {
-        set_iframe_field_from_raw_bytes(f->dst_mac, bytes, sizeof(f->dst_mac), 0, 6);
-        set_iframe_field_from_raw_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6, 12);
-        set_iframe_field_from_raw_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12, 14);
+        uint8_t b_arp[2] = ARP_BYTES;
+        set_field_from_raw_bytes(f->dst_mac, bytes, sizeof(f->dst_mac), 0, 6);
+        set_field_from_raw_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6, 12);
+        set_field_from_raw_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12, 14);
+        if(f->ether_type == b_arp){
+            set_iframe_to_arp(f, bytes);
+        }
     }
 }
 
@@ -166,8 +195,7 @@ void print_hex_set(const uint8_t *set, char *target, const size_t length){
 
 
 void set_arp_request_struct(struct arp_request *req, struct inet_frame *f){
-    memcpy(req->src_mac, f->src_mac, sizeof(req->src_mac));
-    memcpy(req->dst_mac, f->dst_mac, sizeof(req->dst_mac));
+    return;
     //src,dst ip
 }
 
@@ -191,4 +219,9 @@ void print_inet_frame(const struct inet_frame f){
            "Ether II Type: %s (%s)\n\n",
            src_mac, dst_mac, ether_type, ether_types[type]
        );
+}
+
+
+uint8_t get_mac(){
+    return 0xf;
 }
