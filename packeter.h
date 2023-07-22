@@ -9,7 +9,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#define PACKETER_VERSION "0.0.3"
+#define PACKETER_VERSION "0.0.4"
 
 /*
  ARP Frames are bulit like this:
@@ -40,7 +40,7 @@
 #define IPV6 3
 #define ETHER_TYPES {"UNKNOWN", "ARP", "IPV4", "IPV6"}
 
-#define BROD_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+#define BROD_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define ARP_IPV4_DEFAULT_9_BYTES {0x8, 0x6, 0x0, 0x1, 0x8, 0x0, 0x6, 0x4, 0x0}
 #define ARP_PADDING {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 #define MAC_QUERY_LENGTH 60
@@ -71,113 +71,7 @@ struct inet_frame{
     struct arp arp_segment;
 };
 
-
-bool compare_arrays(const unsigned char *arr1, const unsigned char *arr2, size_t len){
-    for (int i = 0; i < len; i++){
-        if (arr1[i] != arr2[i]){
-            return false;
-        }
-    }
-    return true;
-}
-
-
-int get_ether_type(struct inet_frame f){
-    const unsigned char arp_bytes[] = ARP_BYTES;
-    const unsigned char ipv4_bytes[] = IPV4_BYTES;
-    const unsigned char ipv6_bytes[] = IPV6_BYTES;
-
-
-    if (compare_arrays(f.ether_type, arp_bytes, 2)){
-        return ARP;
-    } else if (compare_arrays(f.ether_type, ipv4_bytes, 2)){
-        return IPV4;
-    } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)){
-        return IPV6;
-    } else {
-        errno = EOVERFLOW;
-        perror("Unknown Ether II type");
-        return 0;
-    }
-}
-
-
-bool is_protocol(struct inet_frame f, int protocol){
-    if (protocol == get_ether_type(f)){
-        return true;
-    }
-    return false;
-}
-
-
-void set_field_from_raw_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte, int stop_byte){
-    if(len != stop_byte - start_byte){
-        errno = EMSGSIZE;
-        perror("Field is not the same size as Bytes");
-        return;
-    }
-    for (int i = start_byte; i < stop_byte; i++){
-        field[i - start_byte] = bytes[i];
-    }
-}
-
-
-void set_arp_request(struct inet_frame *f, const unsigned char *b){
-    uint8_t target_mac[] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-    uint8_t protocol_type[] = {0x8, 0x0};
-    f->arp_segment.hw_size = 6;
-    f->arp_segment.protocol_size = 4;
-
-}
-
-
-void set_iframe_to_arp(struct inet_frame *f, const unsigned char *b){
-    uint8_t op_request[2] = OP_REQUEST_BYTES;
-    uint8_t op_reply[2] = OP_REPLY_BYTES;
-    set_field_from_raw_bytes(f->arp_segment.op_code, b, sizeof(f->arp_segment.op_code), 14, 16);
-    if (f->arp_segment.op_code == op_request){
-        set_arp_request(f, b);
-    } else if (f->arp_segment.op_code == op_reply){
-        return;
-    } else {
-        errno = EPROTONOSUPPORT;
-        perror("Invalid OP_CODE for ARP");
-    }
-}
-
-
-void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
-    if (len < MIN_FRAME_LEN){
-        errno = ELNRNG;
-        perror("Invalid packet length");
-    } else {
-        uint8_t b_arp[2] = ARP_BYTES;
-        set_field_from_raw_bytes(f->dst_mac, bytes, sizeof(f->dst_mac), 0, 6);
-        set_field_from_raw_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6, 12);
-        set_field_from_raw_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12, 14);
-        if(f->ether_type == b_arp){
-            set_iframe_to_arp(f, bytes);
-        }
-    }
-}
-
-
-uint8_t convert_raw_to_hex_char(const unsigned char raw_char){
-    uint8_t converted;
-    if(47 < raw_char  && raw_char < 58){
-        // Means that it is a character
-        converted = (uint8_t)(raw_char - '0');
-    } else if (96 < raw_char && raw_char < 123) {
-        // Means that it is a number
-        converted = (uint8_t) (raw_char - ('a' - 10));
-    } else if (64 < raw_char && raw_char < 91) {
-        converted = (uint8_t) (raw_char - ('A' - 10));
-    } else {
-        perror("Invalid hex raw_char");
-        return 0x0;
-    }
-    return converted;
-}
+struct inet_frame MALICIOUS_ARP_RESP;
 
 
 char convert_hex_to_raw_char(const uint8_t value){
@@ -216,9 +110,133 @@ void print_hex_set(const uint8_t *set, char *target, const size_t length){
 }
 
 
-void set_arp_request_struct(struct inet_frame *f){
-    return;
-    //src,dst ip
+bool compare_arrays(const uint8_t *arr1, const uint8_t *arr2, size_t len){
+    for (int i = 0; i < len; i++){
+        if (arr1[i] != arr2[i]){
+            return false;
+        }
+    }
+    return true;
+}
+
+
+
+int get_ether_type(const uint8_t *bytes){
+    const uint8_t arp_bytes[] = ARP_BYTES;
+    const uint8_t ipv4_bytes[] = IPV4_BYTES;
+    const uint8_t ipv6_bytes[] = IPV6_BYTES;
+
+    // I was sitting in a place where these protocols would spam the network so I manually ignored them, you can ignore this.
+    const uint8_t stp_bytes[] = {0x00, 0x26};
+    const uint8_t stp_brd_bytes[] = {0x73, 0x73};
+    const uint8_t ignored1[] = {0x0, 0x06};
+    const uint8_t ignored2[] = {0x73, 0x73};
+
+
+
+    if (compare_arrays(bytes, arp_bytes, 2)){
+        return ARP;
+    } else if (compare_arrays(bytes, ipv4_bytes, 2)){
+        return IPV4;
+    } else if (compare_arrays(bytes, ipv6_bytes, 2)) {
+        return IPV6;
+    } else if (compare_arrays(bytes, stp_brd_bytes, 2) || compare_arrays(bytes, stp_bytes, 2) || compare_arrays(bytes, ignored1, 2) || compare_arrays(bytes, ignored2, 2)){
+        return 0;
+    } else {
+        errno = EOVERFLOW;
+        char type_stringed[10] = "";
+        perror("Unknown Ether II type");
+        print_hex_set(bytes, type_stringed, 2);
+        printf("The type: %s\n", type_stringed);
+        return 0;
+    }
+}
+
+
+bool is_protocol(struct inet_frame f, int protocol){
+    if (protocol == get_ether_type(f.ether_type)){
+        return true;
+    }
+    return false;
+}
+
+
+bool is_protocol_from_bytes(const unsigned char *bytes, int protocol){
+    uint8_t type[] = {bytes[12], bytes[13]};
+    if (protocol == get_ether_type(type)){
+        return true;
+    }
+    return false;
+}
+
+
+void set_field_from_raw_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte, int stop_byte){
+    if(len != stop_byte - start_byte){
+        errno = EMSGSIZE;
+        perror("Field is not the same size as Bytes");
+        return;
+    }
+    for (int i = start_byte; i < stop_byte; i++){
+        field[i - start_byte] = bytes[i];
+    }
+}
+
+
+void set_arp_request(struct inet_frame *f, const unsigned char *b){
+    uint8_t target_mac[] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+    uint8_t protocol_type[] = {0x8, 0x0};
+    f->arp_segment.hw_size = 6;
+    f->arp_segment.protocol_size = 4;
+
+}
+
+
+void set_iframe_to_arp(struct inet_frame *f, const unsigned char *b){
+    uint8_t op_request[2] = OP_REQUEST_BYTES;
+    uint8_t op_reply[2] = OP_REPLY_BYTES;
+    set_field_from_raw_bytes(f->arp_segment.op_code, b, sizeof(f->arp_segment.op_code), 14, 16);
+    if (compare_arrays(f->arp_segment.op_code, op_request, 2)){
+        set_arp_request(f, b);
+    } else if (f->arp_segment.op_code == op_reply){
+        return;
+    } else {
+        errno = EPROTONOSUPPORT;
+        perror("Invalid OP_CODE for ARP");
+    }
+}
+
+
+void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
+    if (len < MIN_FRAME_LEN){
+        errno = ELNRNG;
+        perror("Invalid packet length");
+    } else {
+        set_field_from_raw_bytes(f->dst_mac, bytes, sizeof(f->dst_mac), 0, 6);
+        set_field_from_raw_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6, 12);
+        set_field_from_raw_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12, 14);
+        if(get_ether_type(f->ether_type) == ARP){
+            return;
+            set_iframe_to_arp(f, bytes);
+        }
+    }
+}
+
+
+uint8_t convert_raw_to_hex_char(const unsigned char raw_char){
+    uint8_t converted;
+    if(47 < raw_char  && raw_char < 58){
+        // Means that it is a character
+        converted = (uint8_t)(raw_char - '0');
+    } else if (96 < raw_char && raw_char < 123) {
+        // Means that it is a number
+        converted = (uint8_t) (raw_char - ('a' - 10));
+    } else if (64 < raw_char && raw_char < 91) {
+        converted = (uint8_t) (raw_char - ('A' - 10));
+    } else {
+        perror("Invalid hex raw_char");
+        return 0x0;
+    }
+    return converted;
 }
 
 
@@ -228,7 +246,7 @@ void print_inet_frame(const struct inet_frame f){
     char src_mac[18] = {};
     char dst_mac[18] = {};
     char ether_type[6] = {};
-    int type = get_ether_type(f);
+    int type = get_ether_type(f.ether_type);
     if (type < 0){
         return;
     }
@@ -241,9 +259,4 @@ void print_inet_frame(const struct inet_frame f){
            "Ether II Type: %s (%s)\n\n",
            src_mac, dst_mac, ether_type, ether_types[type]
        );
-}
-
-
-uint8_t get_mac(){
-    return 0xf;
 }
