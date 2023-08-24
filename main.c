@@ -11,10 +11,9 @@
 #include "packeter.h"
 
 
-#define MAIN_VERSION "0.0.7"
+#define MAIN_VERSION "0.0.6"
 #define BUFFER 65536
-#define INTERFACE "enp4s0"
-// #define INTERFACE "t0"
+#define INTERFACE "wlp0s20f3"
 
 
 void init_msg(){
@@ -61,7 +60,6 @@ void init_mac(){
     print_hex_set(LOCAL_MAC, mac_string, 6);
     logger("Binding socket on \"%s\" (%s)", INFO, INTERFACE, mac_string);
 
-    fclose(mac);
     free(content);
 }
 
@@ -158,17 +156,11 @@ int main(){
             packet_num++;
             timestamp = get_timedelta(&start, &current);
             // print_traffic(mem, packet_num, data_length, timestamp);
-            if(is_protocol_from_bytes(mem, ARP)){
-                setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
+            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
+            if(is_protocol(i_frame, ARP)){
+                set_arp_packet_struct(&i_frame, mem);
                 logger("Received ARP Packet", INFO);
                 print_inet_frame(i_frame);
-            } else if (is_protocol_from_bytes(mem, IPV4)) {
-                continue;
-            } else if (is_protocol_from_bytes(mem, IPV6)) {
-                continue;
-            }
-            else {
-                continue;
             }
         }
     }
