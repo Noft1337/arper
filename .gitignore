@@ -1,6 +1,6 @@
 .git
 .idea
-[Cc][Mm]ake*
+cmake*
 run
 *.out
 .vscode
