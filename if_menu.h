@@ -75,16 +75,52 @@ int setInterfaces(char interfacesNames[][16]){
 }
 
 
-void printInterfaces(){
+void printInterfaces(char interfacesNames[][16], size_t length){
+    for (int i = 0; i < length; i++) {
+        if (interfacesNames[i][0] == '\0'){
+            break;
+        }
+        printf("  %d: %s\n", i + 1, interfacesNames[i]);
+    }
+}
+
+
+int getMaxPick(char interfaces[][16]){
+    int i = 0;
+    while(interfaces[i][0] != '\0'){
+        if (i > 255){
+            return -1;
+        }
+        i++;
+    }
+    return i;
+}
+
+
+void setInterface(char *toString){
     size_t interfacesAmount = INTERFACES_AMOUNT;
     char interfacesNames[interfacesAmount][16];
     memset(interfacesNames, '\0', sizeof(interfacesNames));
     setInterfaces(interfacesNames);
+    int valid = 0;
+    int maxPick = getMaxPick(interfacesNames);
+    int pick;
 
-    for (int i = 0; i < INTERFACES_AMOUNT; i++) {
-        if (interfacesNames[i][0] == '\0'){
-            break;
+
+    printf("Available interfaces to sniff on:\n");
+    printInterfaces(interfacesNames, interfacesAmount);
+    while(!valid){
+        printf("Choose interface: ");
+        scanf("%d", &pick);
+        pick--;
+        if (pick > maxPick){
+            printf("Invalid pick.\n");
         }
-        printf("\t%d: %s\n", i + 1, interfacesNames[i]);
+        else {
+            valid = 1;
+        }
     }
+
+    sprintf(interfacesNames[pick], toString, sizeof(toString));
+
 }

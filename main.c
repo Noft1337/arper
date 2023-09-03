@@ -14,7 +14,6 @@
 
 #define MAIN_VERSION "0.0.6"
 #define BUFFER 65536
-#define INTERFACE "wlp0s20f3"
 
 
 void init_msg(){
@@ -32,8 +31,7 @@ void set_mac(uint8_t *mac_var, unsigned char *mem){
 }
 
 
-void init_mac(){
-    char interface[] = INTERFACE;
+void init_mac(char interface[]){
     FILE* mac;
     char path[100];
     int file_len;
@@ -59,7 +57,7 @@ void init_mac(){
     fread(content, 1, file_len, mac);
     set_mac(LOCAL_MAC, content);
     print_hex_set(LOCAL_MAC, mac_string, 6);
-    logger("Binding socket on \"%s\" (%s)", INFO, INTERFACE, mac_string);
+    logger("Binding socket on \"%s\" (%s)", INFO, interface, mac_string);
 
     free(content);
 }
@@ -82,9 +80,9 @@ int init_socket(int *s){
     return 1;
 }
 
-void set_if(struct ifreq *ifr){
+void set_if(struct ifreq *ifr, char interface[]){
     memset(ifr, 0, sizeof(* ifr));
-    snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), INTERFACE);
+    snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), interface);
 }
 
 
@@ -97,7 +95,7 @@ void print_traffic(unsigned char *mem, int num, size_t size, double timestamp){
 }
 
 
-void bind_socket(int sock_fd, struct ifreq *ifr, struct sockaddr_ll *saddr, socklen_t addr_len){
+void bind_socket(int sock_fd, struct ifreq *ifr, struct sockaddr_ll *saddr, socklen_t addr_len, char interface[]){
     if (ioctl(sock_fd, SIOCGIFINDEX, ifr) == -1){
         perror("ioctl");
         close(sock_fd);
@@ -113,7 +111,7 @@ void bind_socket(int sock_fd, struct ifreq *ifr, struct sockaddr_ll *saddr, sock
         close(sock_fd);
         exit(-1);
     } else {
-        logger("Bound socket successfully on \"%s\"", INFO, INTERFACE);
+        logger("Bound socket successfully on \"%s\"", INFO, interface);
     }
 }
 
@@ -141,33 +139,34 @@ int main(){
     struct inet_frame i_frame;
     size_t data_length;
     socklen_t addr_len = sizeof(src_addr);
+    char interface[16];
 
-    printInterfaces();
 
     // Init process
     init_msg();
     if(!init_socket(&socket_r)){return -1;}
-    init_mac();
-    set_if(&ifr);
-    bind_socket(socket_r, &ifr, &src_addr,addr_len);
+    setInterface(interface);
+    init_mac(interface);
+    set_if(&ifr, interface);
+    bind_socket(socket_r, &ifr, &src_addr,addr_len, interface);
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     // Sniffing process
-//    while(1){
-//        // TODO: Create a condition that if KeyboardInterrupt signal is sent, exit the program safely.
-//        data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
-//        if (data_length > 0) {
-//            packet_num++;
-//            timestamp = get_timedelta(&start, &current);
-//            // print_traffic(mem, packet_num, data_length, timestamp);
-//            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
-//            if(is_protocol(i_frame, ARP)){
-//                set_arp_packet_struct(&i_frame, mem);
-//                logger("Received ARP Packet", INFO);
-//                print_inet_frame(i_frame);
-//            }
-//        }
-//    }
+    while(1){
+        // TODO: Create a condition that if KeyboardInterrupt signal is sent, exit the program safely.
+        data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
+        if (data_length > 0) {
+            packet_num++;
+            timestamp = get_timedelta(&start, &current);
+            // print_traffic(mem, packet_num, data_length, timestamp);
+            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
+            if(is_protocol(i_frame, ARP)){
+                set_arp_packet_struct(&i_frame, mem);
+                logger("Received ARP Packet", INFO);
+                print_inet_frame(i_frame);
+            }
+        }
+    }
 
     close(socket_r);
     return 0;
