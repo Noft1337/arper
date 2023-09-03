@@ -96,6 +96,22 @@ int getMaxPick(char interfaces[][16]){
     return i;
 }
 
+int isDigit(char *string, int maxIterations){
+    int i = 0;
+    while (i < maxIterations || string[i] != '\0' || string[i] != '\n'){
+        if (string[i] == '\n'){
+            string[i] = '\0';
+            break;
+        } else if (47 > string[i] || string[i] > 58){
+            return 0;
+        }
+        i++;
+    }
+    if (i > 0){
+        return 1;
+    }
+    return 0;
+}
 
 void setInterface(char *toString){
     size_t interfacesAmount = INTERFACES_AMOUNT;
@@ -104,23 +120,26 @@ void setInterface(char *toString){
     setInterfaces(interfacesNames);
     int valid = 0;
     int maxPick = getMaxPick(interfacesNames);
-    int pick;
+    char pick[100];
+    int numPick;
 
 
     printf("Available interfaces to sniff on:\n");
     printInterfaces(interfacesNames, interfacesAmount);
     while(!valid){
         printf("Choose interface: ");
-        scanf("%d", &pick);
-        pick--;
-        if (pick > maxPick){
-            printf("Invalid pick.\n");
+        fgets(pick, sizeof(pick), stdin);
+        if (isDigit(pick, sizeof(pick))){
+            numPick = atoi(pick);
+            if (numPick <= maxPick) {
+                valid = 1;
+            }
         }
-        else {
-            valid = 1;
+        if (!valid) {
+            printf("Invalid pick.\n");
         }
     }
 
-    sprintf(interfacesNames[pick], toString, sizeof(toString));
+    sprintf(toString, interfacesNames[numPick - 1], sizeof(toString));
 
 }

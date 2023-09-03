@@ -127,6 +127,11 @@ double get_timedelta(struct timespec *start, struct timespec *end){
     return (double)seconds + (double)nanoseconds / 1000000000;
 }
 
+void setAndLogInterface(char *interfaceString){
+    setInterface(interfaceString);
+    logger("Selected interface: %s", INFO, interfaceString);
+}
+
 
 int main(){
     int socket_r;
@@ -143,9 +148,9 @@ int main(){
 
 
     // Init process
+    setAndLogInterface(interface);
     init_msg();
     if(!init_socket(&socket_r)){return -1;}
-    setInterface(interface);
     init_mac(interface);
     set_if(&ifr, interface);
     bind_socket(socket_r, &ifr, &src_addr,addr_len, interface);
