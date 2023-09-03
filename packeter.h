@@ -97,8 +97,6 @@ int get_ether_type(struct inet_frame f){
     } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)){
         return IPV6;
     } else {
-        errno = EOVERFLOW;
-        perror("Unknown Ether II type");
         return 0;
     }
 }
