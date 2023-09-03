@@ -5,6 +5,8 @@
 #include <stdlib.h>
 
 
+#define INTERFACES_AMOUNT 255
+
 char *generateInterfacesMenu(){
     return NULL;
 }
@@ -46,14 +48,15 @@ int checkIfInterfaceInArray(char name[], char array[][16], size_t sizeOfArray){
 }
 
 
-int printInterfaces(){
+int setInterfaces(char interfacesNames[][16]){
 
     struct ifaddrs *addresses = getInterfaces();
+    if (!addresses){
+        perror("Error obtaining network interfaces");
+        return -1;
+    }
+    const int interfacesAmount = INTERFACES_AMOUNT;
     struct ifaddrs *address = addresses;
-    const int interfacesAmount = 255;
-    char interfacesNames[interfacesAmount][16];
-
-    memset(interfacesNames, '\0', sizeof(interfacesNames));
 
     while(address)
     {
@@ -61,7 +64,7 @@ int printInterfaces(){
         if (family == AF_INET || family == AF_INET6)
         {
             char *interfaceName = address->ifa_name;
-            if (checkIfInterfaceInArray(interfaceName, interfacesNames, interfacesAmount)){
+            if (!checkIfInterfaceInArray(interfaceName, interfacesNames, interfacesAmount)){
                 appendStringToInterfacesArray(interfaceName, interfacesNames, interfacesAmount);
             }
         }
@@ -69,4 +72,19 @@ int printInterfaces(){
     }
     freeifaddrs(addresses);
     return 0;
+}
+
+
+void printInterfaces(){
+    size_t interfacesAmount = INTERFACES_AMOUNT;
+    char interfacesNames[interfacesAmount][16];
+    memset(interfacesNames, '\0', sizeof(interfacesNames));
+    setInterfaces(interfacesNames);
+
+    for (int i = 0; i < INTERFACES_AMOUNT; i++) {
+        if (interfacesNames[i][0] == '\0'){
+            break;
+        }
+        printf("\t%d: %s\n", i + 1, interfacesNames[i]);
+    }
 }

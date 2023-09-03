@@ -9,6 +9,7 @@
 #include <sys/ioctl.h>
 #include "logger.h"
 #include "packeter.h"
+#include "if_menu.h"
 
 
 #define MAIN_VERSION "0.0.6"
@@ -141,6 +142,8 @@ int main(){
     size_t data_length;
     socklen_t addr_len = sizeof(src_addr);
 
+    printInterfaces();
+
     // Init process
     init_msg();
     if(!init_socket(&socket_r)){return -1;}
@@ -150,20 +153,21 @@ int main(){
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     // Sniffing process
-    while(1){
-        data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
-        if (data_length > 0) {
-            packet_num++;
-            timestamp = get_timedelta(&start, &current);
-            // print_traffic(mem, packet_num, data_length, timestamp);
-            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
-            if(is_protocol(i_frame, ARP)){
-                set_arp_packet_struct(&i_frame, mem);
-                logger("Received ARP Packet", INFO);
-                print_inet_frame(i_frame);
-            }
-        }
-    }
+//    while(1){
+//        // TODO: Create a condition that if KeyboardInterrupt signal is sent, exit the program safely.
+//        data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
+//        if (data_length > 0) {
+//            packet_num++;
+//            timestamp = get_timedelta(&start, &current);
+//            // print_traffic(mem, packet_num, data_length, timestamp);
+//            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
+//            if(is_protocol(i_frame, ARP)){
+//                set_arp_packet_struct(&i_frame, mem);
+//                logger("Received ARP Packet", INFO);
+//                print_inet_frame(i_frame);
+//            }
+//        }
+//    }
 
     close(socket_r);
     return 0;
