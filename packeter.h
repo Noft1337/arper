@@ -217,11 +217,11 @@ void set_arp_packet_struct(struct inet_frame *f, const unsigned char *bytes){
     set_field_from_raw_bytes(arpSegment.protocol_type, bytes, 2, 16);
     arpSegment.hw_size = bytes[18];
     arpSegment.protocol_size = bytes[19];
-    set_field_from_raw_bytes(arpSegment.op_code, bytes, 4, 20);
-    set_field_from_raw_bytes(arpSegment.src_mac, bytes, 6, 28);
-    set_field_from_raw_bytes(arpSegment.src_ip, bytes, 4, 34);
-    set_field_from_raw_bytes(arpSegment.dst_mac, bytes, 4, 38);
-    set_field_from_raw_bytes(arpSegment.src_mac, bytes, 6, 44);
+    set_field_from_raw_bytes(arpSegment.op_code, bytes, 2, 20);
+    set_field_from_raw_bytes(arpSegment.src_mac, bytes, 6, 22);
+    set_field_from_raw_bytes(arpSegment.src_ip, bytes, 4, 28);
+    set_field_from_raw_bytes(arpSegment.dst_mac, bytes, 6, 32);
+    set_field_from_raw_bytes(arpSegment.dst_ip, bytes, 4, 38);
     f->arp_segment = arpSegment;
     //src,dst ip
 }
