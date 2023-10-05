@@ -35,7 +35,7 @@ void init_mac(char interface[]){
     FILE* mac;
     char path[100];
     int file_len;
-    char mac_string[40];
+    char mac_string[40] = { 0x01 };
 
     if (strlen(interface) > 75){
         errno = ENAMETOOLONG;
