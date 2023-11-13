@@ -5,6 +5,7 @@
 #include <netinet/ip.h>
 #include <netinet/if_ether.h>
 #include <net/if.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include "logger.h"
@@ -163,13 +164,13 @@ int main(){
         if (data_length > 0) {
             setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
             if(is_protocol(i_frame, ARP)){
-                set_arp_packet_struct(&i_frame, mem);
+                // set_arp_packet_struct(&i_frame, mem);
                 logger("Received ARP Packet", INFO);
                 print_inet_frame(i_frame);
             }
         }
     }
 
-    close(socket_r);
+    (socket_r);
     return 0;
 }
