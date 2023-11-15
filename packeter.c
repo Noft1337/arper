@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <stdbool.h>
 #include "packeter.h"
 
 bool compare_arrays(const unsigned char *arr1, const unsigned char *arr2, size_t len){
@@ -65,22 +66,22 @@ void set_arp_request(struct inet_frame *f, const unsigned char *b){
 }
 
 
-void set_iframe_to_arp(struct inet_frame *f, const unsigned char *b){
+int set_iframe_to_arp(struct inet_frame *f, const unsigned char *b){
     uint8_t op_request[2] = OP_REQUEST_BYTES;
     uint8_t op_reply[2] = OP_REPLY_BYTES;
     set_field_from_raw_bytes(f->arp_segment.op_code, b, sizeof(f->arp_segment.op_code), 14);
     if (f->arp_segment.op_code[1] == op_request[1]){
         set_arp_request(f, b);
-    } else if (f->arp_segment.op_code[1] == op_reply[1]){
-        return;
-    } else {
+        return 1;
+    } else if (f->arp_segment.op_code[1] != op_reply[1]) {
         errno = EPROTONOSUPPORT;
         perror("Invalid OP_CODE for ARP");
     }
+    return 0;
 }
 
 
-void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
+int setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
     if (len < MIN_FRAME_LEN){
         errno = ELNRNG;
         perror("Invalid packet length");
@@ -90,9 +91,10 @@ void setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *
         set_field_from_raw_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6);
         set_field_from_raw_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12);
         if(f->ether_type == b_arp){
-            set_iframe_to_arp(f, bytes);
+            return set_iframe_to_arp(f, bytes);
         }
     }
+    return 0;
 }
 
 

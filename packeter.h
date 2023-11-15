@@ -15,6 +15,8 @@
         - TARGET_MAC: 6 Bytes (00:00:00:00:00:00)
         - TARGET_IP: 4 Bytes
  */
+#include <stdbool.h>
+
 #define PACKETER_VERSION "0.0.4"
 #define MIN_FRAME_LEN 14
 
@@ -35,9 +37,6 @@
 #define OP_REQUEST_BYTES {0x0, 0x1}
 #define OP_REPLY_BYTES {0x0, 0x2}
 
-uint8_t LOCAL_MAC[6];
-
-
 struct arp {
     uint8_t hw_type[2];
     uint8_t protocol_type[4];
@@ -53,18 +52,22 @@ struct arp {
 
 
 struct inet_frame{
+    /*
+     * Ethernet frame consists only Layer 2,
+     * which includes the ARP segment in itself
+     */
     uint8_t src_mac[6];
     uint8_t dst_mac[6];
     uint8_t ether_type[2];
     struct arp arp_segment;
-
+    uint8_t padding[18];
 };
 
 
 extern bool is_protocol(
         struct inet_frame f, int protocol
         );
-extern void setup_inet_frame_from_raw_bytes(
+extern int setup_inet_frame_from_raw_bytes(
         struct inet_frame *f, const unsigned char *bytes, size_t len
         );
 extern void print_hex_set(const uint8_t *set, char *target, size_t length);

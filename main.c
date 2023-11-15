@@ -17,6 +17,7 @@
 
 #define MAIN_VERSION "0.0.7"
 #define BUFFER 65536
+uint8_t LOCAL_MAC[6];
 
 
 void init_msg(){
@@ -38,7 +39,7 @@ void init_mac(char interface[]){
     FILE* mac;
     char path[100];
     int file_len;
-    char mac_string[40] = { 0x01 };
+    char mac_string[40] = { 0x0 };
 
     if (strlen(interface) > 75){
         errno = ENAMETOOLONG;
@@ -148,6 +149,7 @@ int main(){
     size_t data_length;
     socklen_t addr_len = sizeof(src_addr);
     char interface[16];
+    int request;
 
 
     // Init process
@@ -164,10 +166,10 @@ int main(){
         // TODO: Create a condition that if KeyboardInterrupt signal is sent, exit the program safely.
         data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
         if (data_length > 0) {
-            setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
-            if(is_protocol(i_frame, ARP)){
+            request = setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
+            if(is_protocol(i_frame, ARP) && request){
                 // set_arp_packet_struct(&i_frame, mem);
-                logger("Received ARP Packet", INFO);
+                logger("Received an ARP Request", INFO);
                 print_inet_frame(i_frame);
             }
         }
