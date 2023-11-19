@@ -13,19 +13,17 @@
 #include "logger.h"
 #include "packeter.h"
 #include "if_menu.h"
+#include "utils.h"
 
 
-#define MAIN_VERSION "0.0.7"
-#define BUFFER 65536
 uint8_t LOCAL_MAC[6];
-
 
 void init_msg(){
     printf("Program v%s\nLogger v%s\nStarting program...\n", MAIN_VERSION, LOGGER_VERSION);
 }
 
 
-void set_mac(uint8_t *mac_var, unsigned char *mem){
+void set_mac(uint8_t *mac_var, Byte *mem){
     uint8_t ah, al;
     for (int i = 0; i <= 15; i += 3){
         ah = convert_raw_to_hex_char(mem[i]) << 4;
@@ -54,7 +52,7 @@ void init_mac(char interface[]){
         perror(err_msg);
         exit(2);
     }
-    unsigned char *content = (unsigned char *)malloc(20);
+    Byte *content = (Byte *)malloc(20);
     fseek(mac, 0 ,SEEK_END);
     file_len = (int)ftell(mac);
     fseek(mac, 0, SEEK_SET);
@@ -84,14 +82,14 @@ int init_socket(int *s){
     return 1;
 }
 
-void set_if(struct ifreq *ifr, char interface[]){
+void set_if(struct ifreq *ifr, char *interface){
     memset(ifr, 0, sizeof(* ifr));
     snprintf(ifr->ifr_name, sizeof(ifr->ifr_name), interface);
 }
 
 
-void print_traffic(unsigned char *mem, int num, size_t size, double timestamp){
-    printf("[*] - [%f][#%d] - ", num, timestamp);
+void print_traffic(Byte *mem, int num, size_t size, double timestamp){
+    printf("[*] - [%d][#%f] - ", num, timestamp);
     for (int i = 0; i < size; i++){
         printf("%02x", mem[i]);
     }
@@ -137,11 +135,18 @@ void setAndLogInterface(char *interfaceString){
 }
 
 
+void send_malicious_arp(struct inet_frame *f, Byte *memory){
+    // parse, build, send
+    // Parsing the arp_request
+
+}
+
+
 int main(){
     int socket_r;
     int packet_num = 0;
     double timestamp;
-    unsigned char mem[BUFFER];
+    Byte mem[BUFFER];
     struct ifreq ifr;
     struct sockaddr_ll src_addr;
     struct timespec start, current;
