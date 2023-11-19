@@ -1,3 +1,3 @@
 #define INTERFACES_AMOUNT 255
 
-extern void setInterface(char *toString);
+extern void set_interface(char *toString);

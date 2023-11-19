@@ -129,16 +129,22 @@ double get_timedelta(struct timespec *start, struct timespec *end){
     return (double)seconds + (double)nanoseconds / 1000000000;
 }
 
-void setAndLogInterface(char *interfaceString){
-    setInterface(interfaceString);
-    logger("Selected interface: %s", INFO, interfaceString);
+void set_and_log_interface(char *interface_string){
+    set_interface(interface_string);
+    logger("Selected interface: %s", INFO, interface_string);
 }
 
 
-void send_malicious_arp(struct inet_frame *f, Byte *memory){
-    // parse, build, send
-    // Parsing the arp_request
+int send_malicious_arp(const struct inet_frame *request){
+    // Build the ARP response
+    struct inet_frame response;
+    generate_arp_reply(request, &response, LOCAL_MAC);
 
+    // Send the malicious response
+    if(response.arp_segment.op_code[1] == 0x2){
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -159,7 +165,7 @@ int main(){
 
     // Init process
     init_msg();
-    setAndLogInterface(interface);
+    set_and_log_interface(interface);
     if(!init_socket(&socket_r)){return -1;}
     init_mac(interface);
     set_if(&ifr, interface);
@@ -173,7 +179,7 @@ int main(){
         if (data_length > 0) {
             request = setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
             if(is_protocol(i_frame, ARP) && request){
-                // set_arp_packet_struct(&i_frame, mem);
+                send_malicious_arp(&i_frame);
                 logger("Received an ARP Request", INFO);
                 print_inet_frame(i_frame);
             }

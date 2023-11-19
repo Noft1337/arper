@@ -1,18 +1,9 @@
-//
-// Created by michael on 11/13/23.
-//
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <netpacket/packet.h>
 #include <netinet/ip.h>
-#include <netinet/if_ether.h>
-#include <net/if.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
 #include <errno.h>
-#include <stdbool.h>
 #include "packeter.h"
+#include "utils.h"
 
 bool compare_arrays(const unsigned char *arr1, const unsigned char *arr2, size_t len){
     for (int i = 0; i < len; i++){
@@ -34,11 +25,10 @@ int get_ether_type(struct inet_frame f){
         return ARP;
     } else if (compare_arrays(f.ether_type, ipv4_bytes, 2)){
         return IPV4;
-    } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)){
+    } else if (compare_arrays(f.ether_type, ipv6_bytes, 2)) {
         return IPV6;
-    } else {
-        return 0;
     }
+    return 0;
 }
 
 
@@ -60,7 +50,7 @@ unsigned int set_field_from_bytes(uint8_t *field, const unsigned char *bytes, in
 }
 
 
-void set_strings(const char *from, char *to, size_t length){
+void set_strings(const uint8_t *from, uint8_t *to, size_t length){
     for (int i = 0; i < length; i++){
         to[i] = from[i];
     }
@@ -75,10 +65,10 @@ void set_arp_request(struct inet_frame *f, const unsigned char *b){
     a->protocol_size = b[19];
     f->arp_segment.protocol_size = 4;
     set_field_from_bytes(a->op_code, b, 2, 20);
-    set_field_from_bytes(a->src_mac, b, 6, 22);
-    set_field_from_bytes(a->src_ip, b, 4, 28);
-    set_field_from_bytes(a->dst_mac, b, 6, 32);
-    set_field_from_bytes(a->dst_ip, b, 4, 38);
+    set_field_from_bytes(a->src_mac, b, MAC_LEN, 22);
+    set_field_from_bytes(a->src_ip, b, IPV4_LEN, 28);
+    set_field_from_bytes(a->dst_mac, b, MAC_LEN, 32);
+    set_field_from_bytes(a->dst_ip, b, IPV4_LEN, 38);
 }
 
 
@@ -104,8 +94,8 @@ int setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *b
         perror("Invalid packet length");
     } else {
         uint8_t b_arp[2] = ARP_BYTES;
-        set_field_from_bytes(f->dst_mac, bytes, sizeof(f->dst_mac), 0);
-        set_field_from_bytes(f->src_mac, bytes, sizeof(f->src_mac), 6);
+        set_field_from_bytes(f->dst_mac, bytes, MAC_LEN, 0);
+        set_field_from_bytes(f->src_mac, bytes, MAC_LEN, 6);
         set_field_from_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12);
         if(compare_arrays(f->ether_type, b_arp, 2)){
             return set_iframe_to_arp(f, bytes);
@@ -169,6 +159,29 @@ void print_hex_set(const uint8_t *set, char *target, const size_t length){
 }
 
 
+void generate_arp_reply(const struct inet_frame *req, struct inet_frame *resp, const uint8_t *mac){
+    uint8_t op_code[] = OP_REPLY_BYTES;
+
+    // Set Ethernet values
+    set_strings(req->src_mac, resp->dst_mac, MAC_LEN);
+    set_strings(mac, resp->src_mac, MAC_LEN);
+    set_strings(req->ether_type, resp->ether_type, 2);
+
+    struct arp req_arp = req->arp_segment;
+    struct arp *resp_arp = &resp->arp_segment;
+
+    // Set the ARP op_code segment
+    set_strings(req_arp.hw_type, resp_arp->hw_type, 2);
+    set_strings(req_arp.protocol_type, resp_arp->protocol_type, 2);
+    resp_arp->hw_size = req_arp.hw_size;
+    resp_arp->protocol_size = req_arp.protocol_size;
+    set_strings(op_code, resp_arp->op_code, 2);
+    set_strings(mac, resp_arp->src_mac, MAC_LEN);
+    set_strings(req_arp.dst_ip, resp_arp->src_ip, IPV4_LEN);
+    set_strings(req_arp.src_mac, resp_arp->dst_mac, MAC_LEN);
+    set_strings(req_arp.src_ip, resp_arp->dst_ip, IPV4_LEN);
+}
+
 
 void print_inet_frame(const struct inet_frame f){
     const char *ether_types[] = ETHER_TYPES;
@@ -176,9 +189,6 @@ void print_inet_frame(const struct inet_frame f){
     char dst_mac[18] = {};
     char ether_type[6] = {};
     int type = get_ether_type(f);
-    if (type < 0){
-        return;
-    }
 
     print_hex_set(f.src_mac, src_mac, 6);
     print_hex_set(f.dst_mac, dst_mac, 6);

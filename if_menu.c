@@ -110,7 +110,7 @@ int isDigit(char *string, int maxIterations){
     return 0;
 }
 
-void setInterface(char *toString){
+void set_interface(char *toString){
     size_t interfacesAmount = INTERFACES_AMOUNT;
     char interfacesNames[interfacesAmount][16];
     memset(interfacesNames, '\0', sizeof(interfacesNames));

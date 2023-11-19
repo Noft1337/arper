@@ -30,12 +30,15 @@
 #define ETHER_TYPES {"UNKNOWN", "ARP", "IPV4", "IPV6"}
 
 #define BROD_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+// TODO: to improve processing speed, in the future use this instead of lots of set_field_from_bytes
 #define ARP_IPV4_DEFAULT_9_BYTES {0x8, 0x6, 0x0, 0x1, 0x8, 0x0, 0x6, 0x4, 0x0}
 #define ARP_PADDING {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
-#define MAC_QUERY_LENGTH 60
+#define MAC_RE_LENGTH 60
 #define MAC_RESP_LENGTH 42
 #define OP_REQUEST_BYTES {0x0, 0x1}
 #define OP_REPLY_BYTES {0x0, 0x2}
+#define MAC_LEN 6
+#define IPV4_LEN 4
 
 struct arp {
     uint8_t hw_type[2];
@@ -47,7 +50,6 @@ struct arp {
     uint8_t dst_mac[6];
     uint8_t src_ip[4];
     uint8_t dst_ip[4];
-    bool is_request;
 };
 
 
@@ -73,3 +75,7 @@ extern int setup_inet_frame_from_raw_bytes(
 extern void print_hex_set(const uint8_t *set, char *target, size_t length);
 extern uint8_t convert_raw_to_hex_char(unsigned char raw_char);
 extern void print_inet_frame(struct inet_frame f);
+extern void generate_arp_reply(
+                const struct inet_frame *request,
+                struct inet_frame *response,
+                const uint8_t *target_mac);
