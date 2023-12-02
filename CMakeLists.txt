@@ -3,5 +3,5 @@ project(arper C)
 
 set(CMAKE_C_STANDARD 23)
 
-add_executable(arper main.c logger.c packeter.c if_menu.c
-        utils.h)
+add_executable(arper main.c
+        logger.c packeter.c if_menu.c utils.c)

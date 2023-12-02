@@ -40,68 +40,14 @@ bool is_protocol(struct inet_frame f, int protocol){
 }
 
 
-unsigned int set_field_from_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte){
-    unsigned int pos;
-    for (int i = start_byte; i < len + start_byte; i++){
-        field[i - start_byte] = bytes[i];
-        pos = i;
+int set_bytes_in_pos(const Byte *from, Byte *to, int pos_from, int pos_to, size_t len){
+    int updated_pos = pos_to;
+
+    for (int i = 0; i < len; i++){
+        to[i+pos_to] = from[i+pos_from];
     }
-    return pos;
-}
 
-
-void set_strings(const uint8_t *from, uint8_t *to, size_t length){
-    for (int i = 0; i < length; i++){
-        to[i] = from[i];
-    }
-}
-
-
-void set_arp_request(struct inet_frame *f, const unsigned char *b){
-    struct arp *a = &f->arp_segment;
-    set_field_from_bytes(a->hw_type, b, 2, 14);
-    set_field_from_bytes(a->protocol_type, b, 2, 16);
-    a->hw_size = b[18];
-    a->protocol_size = b[19];
-    f->arp_segment.protocol_size = 4;
-    set_field_from_bytes(a->op_code, b, 2, 20);
-    set_field_from_bytes(a->src_mac, b, MAC_LEN, 22);
-    set_field_from_bytes(a->src_ip, b, IPV4_LEN, 28);
-    set_field_from_bytes(a->dst_mac, b, MAC_LEN, 32);
-    set_field_from_bytes(a->dst_ip, b, IPV4_LEN, 38);
-}
-
-
-int set_iframe_to_arp(struct inet_frame *f, const unsigned char *b){
-    uint8_t op_request[2] = OP_REQUEST_BYTES;
-    uint8_t op_reply[2] = OP_REPLY_BYTES;
-    set_field_from_bytes(f->arp_segment.op_code, b, sizeof(f->arp_segment.op_code), 14);
-    if (f->arp_segment.op_code[1] == op_request[1]){
-        // Set the arp_segment inside the inet_frame
-        set_arp_request(f, b);
-        return 1;
-    } else if (f->arp_segment.op_code[1] != op_reply[1]) {
-        errno = EPROTONOSUPPORT;
-        perror("Invalid OP_CODE for ARP");
-    }
-    return 0;
-}
-
-
-int setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
-    if (len < MIN_FRAME_LEN){
-        errno = ELNRNG;
-        perror("Invalid packet length");
-    } else {
-        uint8_t b_arp[2] = ARP_BYTES;
-        set_field_from_bytes(f->dst_mac, bytes, MAC_LEN, 0);
-        set_field_from_bytes(f->src_mac, bytes, MAC_LEN, 6);
-        set_field_from_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12);
-        if(compare_arrays(f->ether_type, b_arp, 2)){
-            return set_iframe_to_arp(f, bytes);
-        }
-    }
-    return 0;
+    return updated_pos;
 }
 
 
@@ -159,30 +105,6 @@ void print_hex_set(const uint8_t *set, char *target, const size_t length){
 }
 
 
-void generate_arp_reply(const struct inet_frame *req, struct inet_frame *resp, const uint8_t *mac){
-    uint8_t op_code[] = OP_REPLY_BYTES;
-
-    // Set Ethernet values
-    set_strings(req->src_mac, resp->dst_mac, MAC_LEN);
-    set_strings(mac, resp->src_mac, MAC_LEN);
-    set_strings(req->ether_type, resp->ether_type, 2);
-
-    struct arp req_arp = req->arp_segment;
-    struct arp *resp_arp = &resp->arp_segment;
-
-    // Set the ARP op_code segment
-    set_strings(req_arp.hw_type, resp_arp->hw_type, 2);
-    set_strings(req_arp.protocol_type, resp_arp->protocol_type, 2);
-    resp_arp->hw_size = req_arp.hw_size;
-    resp_arp->protocol_size = req_arp.protocol_size;
-    set_strings(op_code, resp_arp->op_code, 2);
-    set_strings(mac, resp_arp->src_mac, MAC_LEN);
-    set_strings(req_arp.dst_ip, resp_arp->src_ip, IPV4_LEN);
-    set_strings(req_arp.src_mac, resp_arp->dst_mac, MAC_LEN);
-    set_strings(req_arp.src_ip, resp_arp->dst_ip, IPV4_LEN);
-}
-
-
 void print_inet_frame(const struct inet_frame f){
     const char *ether_types[] = ETHER_TYPES;
     char src_mac[18] = {};
@@ -201,6 +123,47 @@ void print_inet_frame(const struct inet_frame f){
 }
 
 
-uint8_t get_mac(){
-    return 0xf;
+unsigned int set_field_from_bytes(uint8_t *field, const unsigned char *bytes, int len, int start_byte){
+    unsigned int pos;
+    for (int i = start_byte; i < len + start_byte; i++){
+        field[i - start_byte] = bytes[i];
+        pos = i;
+    }
+    return pos;
+}
+
+
+int setup_inet_frame_from_raw_bytes(struct inet_frame *f, const unsigned char *bytes, const size_t len){
+    if (len < MIN_FRAME_LEN){
+        errno = ELNRNG;
+        perror("Invalid packet length");
+        return 0;
+    } else {
+        uint8_t b_arp[2] = ARP_BYTES;
+        set_field_from_bytes(f->dst_mac, bytes, MAC_SIZE, 0);
+        set_field_from_bytes(f->src_mac, bytes, MAC_SIZE, 6);
+        set_field_from_bytes(f->ether_type, bytes, sizeof(f->ether_type), 12);
+    }
+    return 1;
+}
+
+
+Byte *create_arp_reply_from_bytes(const Byte *b, const Byte *mac_addr){
+    Byte arp_defaults[] = ARP_DEFAULT_BYTES;
+    Byte *resp = (Byte *)s_malloc(ARP_RESP_SIZE);
+
+    // Reverse destination and source
+    // Set the source mac to be our own
+    set_bytes_in_pos(mac_addr, resp, 0, 6, MAC_SIZE);
+    // Set the destination to be the source of the request
+    set_bytes_in_pos(b, resp, 6, 0, MAC_SIZE);
+    // Set the default 10 Bytes
+    set_bytes_in_pos(arp_defaults, resp, 0, 12, ARP_DEFAULTS_SIZE);
+    // Exchange Sender's MAC, IP with TARGET's IP and our MAC
+    set_bytes_in_pos(mac_addr, resp, 0, 22, MAC_SIZE);
+    set_bytes_in_pos(b, resp, 38, 28, IPV4_SIZE);
+    set_bytes_in_pos(b, resp, 22, 32, MAC_SIZE);
+    set_bytes_in_pos(b, resp, 28, 38, IPV4_SIZE);
+
+    return resp;
 }
