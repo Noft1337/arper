@@ -3,5 +3,9 @@ project(arper C)
 
 set(CMAKE_C_STANDARD 23)
 
-add_executable(arper main.c
-        logger.c packeter.c if_menu.c utils.c)
+set(SRC "${CMAKE_SOURCE_DIR}/src")
+file(GLOB SOURCES "${SRC}/*.c")
+add_executable(arper ${SOURCES})
+
+target_include_directories(arper PRIVATE ${SRC})
+
